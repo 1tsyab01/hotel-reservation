@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, getNights, toISODate, addDays } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
 import type { RoomWithType } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,16 +49,22 @@ export default function BookingForm({ room, defaultCheckIn, defaultCheckOut, def
 
   const checkAvailability = async () => {
     setChecking(true)
-    const { data } = await supabase
-      .from('bookings')
-      .select('id')
-      .eq('room_id', room.id)
-      .not('status', 'in', '("cancelled","checked_out")')
-      .or(`check_in_date.lt.${checkOut},check_out_date.gt.${checkIn}`)
-      .limit(1)
+    try {
+      const { data } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('room_id', room.id)
+        .not('status', 'in', '("cancelled","checked_out")')
+        .lt('check_in_date', checkOut)
+        .gt('check_out_date', checkIn)
+        .limit(1)
 
-    setAvailable(!data || data.length === 0)
-    setChecking(false)
+      setAvailable(!data || data.length === 0)
+    } catch {
+      setAvailable(null)
+    } finally {
+      setChecking(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,6 +100,22 @@ export default function BookingForm({ room, defaultCheckIn, defaultCheckOut, def
         return
       }
 
+      // Double-check availability before booking
+      const { data: conflictingBookings } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('room_id', room.id)
+        .not('status', 'in', '("cancelled","checked_out")')
+        .lt('check_in_date', checkOut)
+        .gt('check_out_date', checkIn)
+        .limit(1)
+
+      if (conflictingBookings && conflictingBookings.length > 0) {
+        setError('Room is no longer available for these dates.')
+        setAvailable(false)
+        return
+      }
+
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .insert({
@@ -113,9 +136,20 @@ export default function BookingForm({ room, defaultCheckIn, defaultCheckOut, def
 
       if (bookingError) throw bookingError
 
+      toast({
+        title: 'Booking created successfully!',
+        description: `Your booking reference: ${booking.id.slice(0, 8).toUpperCase()}`,
+      })
+
       router.push(`/booking/${booking.id}`)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create booking. Please try again.')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create booking. Please try again.'
+      setError(errorMessage)
+      toast({
+        title: 'Booking failed',
+        description: errorMessage,
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
