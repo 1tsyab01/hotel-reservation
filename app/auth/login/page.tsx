@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -17,8 +17,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!rememberMe) {
+      const handleUnload = () => {
+        supabase.auth.signOut()
+      }
+      window.addEventListener('beforeunload', handleUnload)
+      return () => window.removeEventListener('beforeunload', handleUnload)
+    }
+  }, [rememberMe, supabase])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,13 +53,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-[#0A0A0A]">
-      {/* Background texture */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#6366F1]/5 blur-[120px]" />
       </div>
 
       <div className="w-full max-w-sm relative z-10 fade-in">
-        {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-9 h-9 rounded-xl bg-[#6366F1] flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.5)]">
             <Hotel className="w-5 h-5 text-white" />
@@ -85,7 +94,7 @@ export default function LoginPage() {
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="........"
                   required
                   className="bg-[#1A1A1A] border-[#2A2A2A] text-white placeholder:text-white/20 focus:border-[#6366F1] h-10 pr-10"
                 />
@@ -97,6 +106,32 @@ export default function LoginPage() {
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={rememberMe}
+                onClick={() => setRememberMe(!rememberMe)}
+                className={`w-4 h-4 rounded border flex items-center justify-center transition-colors duration-150 shrink-0 ${
+                  rememberMe
+                    ? 'bg-[#6366F1] border-[#6366F1]'
+                    : 'bg-transparent border-[#2A2A2A] hover:border-white/30'
+                }`}
+              >
+                {rememberMe && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+              <span
+                onClick={() => setRememberMe(!rememberMe)}
+                className="text-xs text-white/50 cursor-pointer select-none"
+              >
+                Remember me
+              </span>
             </div>
 
             {error && (

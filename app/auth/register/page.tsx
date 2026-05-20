@@ -4,18 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Hotel, CircleAlert as AlertCircle, Loader as Loader2, User, Briefcase } from 'lucide-react'
+import { Eye, EyeOff, Hotel, CircleAlert as AlertCircle, Loader as Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
-
-type Role = 'guest' | 'staff'
 
 export default function RegisterPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [role, setRole] = useState<Role>('guest')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -23,11 +19,6 @@ export default function RegisterPage() {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Staff-only fields
-  const [employeeNumber, setEmployeeNumber] = useState('')
-  const [department, setDepartment] = useState('front_desk')
-  const [position, setPosition] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,34 +39,22 @@ export default function RegisterPage() {
 
       const userId = authData.user.id
 
-      // Insert into users table
       const { error: userError } = await supabase.from('users').insert({
         id: userId,
         email,
         full_name: fullName,
         phone: phone || null,
-        role,
+        role: 'guest',
       })
 
       if (userError) throw userError
 
-      // Insert into subclass table
-      if (role === 'guest') {
-        const { error: guestError } = await supabase.from('guests').insert({
-          id: userId,
-          loyalty_points: 0,
-        })
-        if (guestError) throw guestError
-      } else {
-        const { error: staffError } = await supabase.from('staff').insert({
-          id: userId,
-          employee_number: employeeNumber || `EMP-${Date.now()}`,
-          department,
-          position: position || 'Staff',
-          hire_date: new Date().toISOString().split('T')[0],
-        })
-        if (staffError) throw staffError
-      }
+      const { error: guestError } = await supabase.from('guests').insert({
+        id: userId,
+        loyalty_points: 0,
+      })
+
+      if (guestError) throw guestError
 
       router.push('/dashboard')
       router.refresh()
@@ -93,7 +72,6 @@ export default function RegisterPage() {
       </div>
 
       <div className="w-full max-w-sm relative z-10 fade-in">
-        {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-9 h-9 rounded-xl bg-[#6366F1] flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.5)]">
             <Hotel className="w-5 h-5 text-white" />
@@ -104,37 +82,7 @@ export default function RegisterPage() {
         <div className="surface rounded-xl p-6">
           <div className="mb-6">
             <h1 className="text-xl font-bold text-white mb-1">Create your account</h1>
-            <p className="text-sm text-white/40">Join Lumière Grand Hotel</p>
-          </div>
-
-          {/* Role selector */}
-          <div className="grid grid-cols-2 gap-2 mb-5">
-            <button
-              type="button"
-              onClick={() => setRole('guest')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 rounded-lg border transition-all duration-150 text-sm',
-                role === 'guest'
-                  ? 'border-[#6366F1]/50 bg-[#6366F1]/10 text-[#818CF8]'
-                  : 'border-[#1F1F1F] text-white/40 hover:border-white/10 hover:text-white/70'
-              )}
-            >
-              <User className="w-4 h-4" />
-              <span>Guest</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('staff')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 rounded-lg border transition-all duration-150 text-sm',
-                role === 'staff'
-                  ? 'border-[#6366F1]/50 bg-[#6366F1]/10 text-[#818CF8]'
-                  : 'border-[#1F1F1F] text-white/40 hover:border-white/10 hover:text-white/70'
-              )}
-            >
-              <Briefcase className="w-4 h-4" />
-              <span>Staff</span>
-            </button>
+            <p className="text-sm text-white/40">Join Lumière Grand Hotel as a guest</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -194,45 +142,6 @@ export default function RegisterPage() {
                 </button>
               </div>
             </div>
-
-            {/* Staff fields */}
-            {role === 'staff' && (
-              <div className="space-y-3 pt-2 border-t border-[#1F1F1F]">
-                <p className="text-xs text-white/40 font-medium uppercase tracking-wider">Staff Details</p>
-                <div>
-                  <Label className="text-xs text-white/50 mb-1.5 block">Employee Number</Label>
-                  <Input
-                    value={employeeNumber}
-                    onChange={(e) => setEmployeeNumber(e.target.value)}
-                    placeholder="EMP-001"
-                    className="bg-[#1A1A1A] border-[#2A2A2A] text-white placeholder:text-white/20 focus:border-[#6366F1] h-10"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-white/50 mb-1.5 block">Department</Label>
-                  <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md bg-[#1A1A1A] border border-[#2A2A2A] text-white text-sm focus:border-[#6366F1] outline-none"
-                  >
-                    <option value="front_desk">Front Desk</option>
-                    <option value="housekeeping">Housekeeping</option>
-                    <option value="management">Management</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="food_beverage">Food & Beverage</option>
-                  </select>
-                </div>
-                <div>
-                  <Label className="text-xs text-white/50 mb-1.5 block">Position / Title</Label>
-                  <Input
-                    value={position}
-                    onChange={(e) => setPosition(e.target.value)}
-                    placeholder="Front Desk Agent"
-                    className="bg-[#1A1A1A] border-[#2A2A2A] text-white placeholder:text-white/20 focus:border-[#6366F1] h-10"
-                  />
-                </div>
-              </div>
-            )}
 
             {error && (
               <div className="flex items-start gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-2.5 rounded-md">
