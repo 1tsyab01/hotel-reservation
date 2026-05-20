@@ -25,7 +25,10 @@ export default function AdminPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
     if (user.role !== 'admin' && user.role !== 'staff') {
       setAuthorized(false)

@@ -3,41 +3,45 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { useBookings } from '@/hooks/useBookings'
 import BookingCard from '@/components/bookings/BookingCard'
 import EmptyState from '@/components/shared/EmptyState'
 import { PageLoader } from '@/components/shared/LoadingSpinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Calendar, LogOut } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import type { BookingWithDetails, BookingStatus } from '@/types/database'
+import type { BookingWithDetails } from '@/types/database'
 
 export default function DashboardPage() {
-  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [bookings, setBookings] = useState<BookingWithDetails[]>([])
-  const [loading, setLoading] = useState(true)
+  const [bookingsLoading, setBookingsLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setBookingsLoading(false)
+      return
+    }
 
     const fetchBookings = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('bookings')
         .select('*, rooms(*, room_types(*))')
         .eq('guest_id', user.id)
         .order('check_in_date', { ascending: false })
 
-      setBookings((data ?? []) as BookingWithDetails[])
-      setLoading(false)
+      if (error) {
+        setBookings([])
+      } else {
+        setBookings((data ?? []) as BookingWithDetails[])
+      }
+      setBookingsLoading(false)
     }
 
     fetchBookings()
-  }, [user])
+  }, [user, supabase])
 
-  if (authLoading || loading) return <PageLoader />
+  if (authLoading || bookingsLoading) return <PageLoader />
 
   if (!user) {
     return (
@@ -65,14 +69,13 @@ export default function DashboardPage() {
   const cancelledBookings = bookings.filter((b) => b.status === 'cancelled')
 
   const handleBookingCancelled = () => {
-    // Refetch bookings
     if (user) {
       supabase
         .from('bookings')
         .select('*, rooms(*, room_types(*))')
         .eq('guest_id', user.id)
         .order('check_in_date', { ascending: false })
-        .then(({ data }) => {
+        .then(({ data }: { data: BookingWithDetails[] | null }) => {
           setBookings((data ?? []) as BookingWithDetails[])
         })
     }
@@ -81,7 +84,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] pt-16">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Welcome back, {user.full_name.split(' ')[0]}</h1>
           <p className="text-white/50">{bookings.length} booking{bookings.length !== 1 ? 's' : ''} in total</p>
