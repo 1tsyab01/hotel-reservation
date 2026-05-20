@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -21,16 +21,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!rememberMe) {
-      const handleUnload = () => {
-        supabase.auth.signOut()
-      }
-      window.addEventListener('beforeunload', handleUnload)
-      return () => window.removeEventListener('beforeunload', handleUnload)
-    }
-  }, [rememberMe, supabase])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -45,6 +35,10 @@ export default function LoginPage() {
       setError(signInError.message)
       setLoading(false)
       return
+    }
+
+    if (!rememberMe) {
+      sessionStorage.setItem('sb-remember-me', 'false')
     }
 
     router.push(redirectTo)
