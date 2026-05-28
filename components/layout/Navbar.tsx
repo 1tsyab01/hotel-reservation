@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Session } from '@supabase/supabase-js'
 import type { User } from '@/types/database'
 import {
   DropdownMenu,
@@ -15,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Menu, X, Hotel, ChevronDown, LogOut, LayoutDashboard, Shield } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Menu, X, Hotel, ChevronDown, LogOut, LayoutDashboard, Settings, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
@@ -33,25 +33,26 @@ export default function Navbar() {
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchUserProfile = async (userId: string) => {
-      const { data } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
-      setUser(data)
-    }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        setUser(null)
-      } else if (session?.user) {
-        fetchUserProfile(session.user.id)
+    const fetchUser = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle()
+        setUser(data)
       }
+    }
+    fetchUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setUser(null)
+      else if (event === 'SIGNED_IN') fetchUser()
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -86,6 +87,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
+          {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-[#6366F1] flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.4)] group-hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] transition-all duration-300">
               <Hotel className="w-4 h-4 text-white" />
@@ -95,6 +97,7 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
@@ -112,6 +115,7 @@ export default function Navbar() {
             ))}
           </nav>
 
+          {/* Right side */}
           <div className="flex items-center gap-3">
             {user ? (
               <DropdownMenu>
@@ -189,6 +193,7 @@ export default function Navbar() {
               </div>
             )}
 
+            {/* Mobile menu button */}
             <button
               className="md:hidden p-2 rounded-md hover:bg-white/5 text-white/60 hover:text-white transition-colors"
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -199,6 +204,7 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Mobile Nav */}
       {mobileOpen && (
         <div className="md:hidden glass border-t border-white/5 px-4 py-4 space-y-1">
           {navLinks.map((link) => (

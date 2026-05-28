@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Session } from '@supabase/supabase-js'
 import type { User } from '@/types/database'
 
 export function useAuth() {
@@ -11,27 +10,34 @@ export function useAuth() {
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchUserProfile = async (userId: string) => {
-      const { data } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
-      setUser(data)
+    const fetchUser = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle()
+        setUser(data)
+      } else {
+        setUser(null)
+      }
       setLoading(false)
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
-      if (event === 'SIGNED_OUT' || !session) {
+    fetchUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
         setUser(null)
         setLoading(false)
-      } else if (session?.user) {
-        fetchUserProfile(session.user.id)
+      } else {
+        fetchUser()
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [])
 
   return { user, loading }
 }
